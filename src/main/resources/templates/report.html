@@ -1,0 +1,69 @@
+<!DOCTYPE HTML>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Отчет</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+</head>
+<body>
+<table border="1">
+    <caption><h2>Отчет</h2></caption>
+    <tr>
+        <div th:each="row : ${headRows}">
+            <th th:text="${row}"></th>
+        </div>
+    </tr>
+    <div th:each="data : ${allData}">
+        <tr>
+            <div th:each="row : ${headRows}">
+                <div th:switch="${row}">
+                    <td th:case="'readTimestamp'" th:text="${data.readTimestamp}"></td>
+                    <td th:case="'temperature'" th:text="${data.temperature}"></td>
+                    <td th:case="'pressure'" th:text="${data.pressure}"></td>
+                    <td th:case="'windDirection'" th:text="${data.windDirection}"></td>
+                    <td th:case="'windSpeed'" th:text="${data.windSpeed}"></td>
+                </div>
+            </div>
+        </tr>
+    </div>
+</table>
+<form action="/download">
+    <button>
+        <h3>Скачать</h3>
+    </button>
+</form>
+<form action="/get-json">
+    <button>
+        <h3>Получить в формате JSON</h3>    <!--TODO: zatesti i ubrat-->
+    </button>
+</form>
+<form action="/editing">
+    <button>
+        <h3>Редактировать</h3>
+    </button>
+</form>
+
+<!--${data}.${row}-->
+
+<!--<p th:text="'id: ' + ${greeting.id}" />
+<p th:text="'content: ' + ${greeting.content}" />
+<a href="/greeting">Submit another message</a>-->
+
+<!--th:checked="${true}"-->
+<!--<a href="/download">download file</a><br/>-->
+<!--<table border="5">
+    <caption>Таблица размеров обуви</caption>
+    <tr>
+        <th>Россия</th>
+        <th>Великобритания</th>
+        <th>Европа</th>
+        <th>Длина ступни, см</th>
+    </tr>
+    <tr>
+        <td>34,5</td>
+        <td>3,5</td>
+        <td>36</td>
+        <td>23</td>
+    </tr>
+</table>-->
+</body>
+</html>

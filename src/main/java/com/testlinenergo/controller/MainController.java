@@ -5,6 +5,7 @@ import com.testlinenergo.model.MeteoStationData;
 import com.testlinenergo.model.NeedOfColumns;
 import com.testlinenergo.service.ReportService;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import org.slf4j.Logger;
@@ -13,10 +14,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletResponse;
 
@@ -25,6 +23,7 @@ import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.stream.Stream;
 
 /**
  * заппппооооооолнить!!!!!!!!!!!!
@@ -58,6 +57,8 @@ public class MainController {
 
     public static final String WIND_SPEED = "windSpeed";
 
+    private static final String VARIANT_FOR_JSON_GETTING_ALL = "all";
+
     public static final Logger logger = LoggerFactory.getLogger(MainController.class);
 
     @RequestMapping(value = "/add-meteo-data", method = RequestMethod.GET)
@@ -81,12 +82,11 @@ public class MainController {
 
     @RequestMapping(value = "/make-report", method = RequestMethod.POST)
     public void makeMonthlyReport(@ModelAttribute NeedOfColumns columns) {
-        final String currentFileName = FILE_NAME + FILE_TYPE;
-        this.reportService.createReport(FILE_PATH + currentFileName, columns);
+        this.reportService.createReport(FILE_PATH + FILE_NAME + FILE_TYPE, columns);
     }
 
     @RequestMapping(value = "/", method = RequestMethod.GET)
-    public String showReport(Model model, @ModelAttribute NeedOfColumns columns) {
+    public String showReport(Model model) {
         List<String> headRows = new LinkedList<>();
         headRows.add(READ_TIME);
         headRows.add(TEMPERATURE);
@@ -113,11 +113,11 @@ public class MainController {
     @RequestMapping(value = "/show-editing-report", method = RequestMethod.POST)
     public String showEditReport(@ModelAttribute NeedOfColumns columns, Model model) {
         List<String> headRows = new LinkedList<>();
-        if(columns.getTemperatureNeed()) headRows.add(READ_TIME);
-        if(columns.getTemperatureNeed()) headRows.add(TEMPERATURE);
-        if(columns.getPressureNeed()) headRows.add(PRESSURE);
-        if(columns.getWindDirectionNeed()) headRows.add(WIND_DIR);
-        if(columns.getWindSpeedNeed()) headRows.add(WIND_SPEED);
+        if (columns.getTimestampNeed()) headRows.add(READ_TIME);
+        if (columns.getTemperatureNeed()) headRows.add(TEMPERATURE);
+        if (columns.getPressureNeed()) headRows.add(PRESSURE);
+        if (columns.getWindDirectionNeed()) headRows.add(WIND_DIR);
+        if (columns.getWindSpeedNeed()) headRows.add(WIND_SPEED);
 
         if (headRows.isEmpty()) headRows.add(READ_TIME);
 
@@ -151,8 +151,27 @@ public class MainController {
     }
 
     @ResponseBody
-    @RequestMapping(value = "/get-json", method = RequestMethod.GET)
-    public JSONObject getJson(List<MeteoStationData> data) {              //TODO: PERDELATb
-        return new JSONObject(data);
+    @RequestMapping(value = "/get-json/{variant}", method = RequestMethod.GET)
+    public JSONArray getJson(@PathVariable(name = "variant") String variant) {
+        if (variant.equals(VARIANT_FOR_JSON_GETTING_ALL)) {
+            return new JSONArray(this.reportService.getMonthlyMeteoDataList());
+        } else {
+            List<MeteoStationData> listWithoutExcessFields
+                    = this.reportService.getMonthlyMeteoDataList();
+            listWithoutExcessFields.forEach(data -> {
+                if (Arrays.stream(variant.split("_")).noneMatch(READ_TIME::equals))
+                    data.setReadTimestamp(null);
+                if (Arrays.stream(variant.split("_")).noneMatch(TEMPERATURE::equals))
+                    data.setTemperature(null);
+                if (Arrays.stream(variant.split("_")).noneMatch(PRESSURE::equals))
+                    data.setPressure(null);
+                if (Arrays.stream(variant.split("_")).noneMatch(WIND_DIR::equals))
+                    data.setWindDirection(null);
+                if (Arrays.stream(variant.split("_")).noneMatch(WIND_SPEED::equals))
+                    data.setWindSpeed(null);
+            });
+
+            return new JSONArray(listWithoutExcessFields);
+        }
     }
 }

@@ -31,9 +31,14 @@
         <h3>Скачать</h3>
     </button>
 </form>
-<form action="/get-json">
+<form action="/get-json/all">
     <button>
-        <h3>Получить в формате JSON</h3>    <!--TODO: zatesti i ubrat-->
+        <h3>Получить в формате JSON все</h3>    <!--TODO: zatesti i ubrat-->
+    </button>
+</form>
+<form action="/get-json/readTimestamp_temperature_windSpeed">
+    <button>
+        <h3>Получить в формате JSON не все</h3>    <!--TODO: zatesti i ubrat-->
     </button>
 </form>
 <form action="/editing">
@@ -41,29 +46,12 @@
         <h3>Редактировать</h3>
     </button>
 </form>
-
-<!--${data}.${row}-->
-
-<!--<p th:text="'id: ' + ${greeting.id}" />
-<p th:text="'content: ' + ${greeting.content}" />
-<a href="/greeting">Submit another message</a>-->
-
-<!--th:checked="${true}"-->
-<!--<a href="/download">download file</a><br/>-->
-<!--<table border="5">
-    <caption>Таблица размеров обуви</caption>
-    <tr>
-        <th>Россия</th>
-        <th>Великобритания</th>
-        <th>Европа</th>
-        <th>Длина ступни, см</th>
-    </tr>
-    <tr>
-        <td>34,5</td>
-        <td>3,5</td>
-        <td>36</td>
-        <td>23</td>
-    </tr>
-</table>-->
+<div th:if="${headRows.size() != 5}">
+    <form action="/">
+        <button>
+            <h3>Полный отчет</h3>
+        </button>
+    </form>
+</div>
 </body>
 </html>

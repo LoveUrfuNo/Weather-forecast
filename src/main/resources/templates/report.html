@@ -26,21 +26,20 @@
         </tr>
     </div>
 </table>
-<form action="/download">
-    <button>
-        <h3>Скачать</h3>
-    </button>
-</form>
-<form action="/get-json/all">
-    <button>
-        <h3>Получить в формате JSON все</h3>    <!--TODO: zatesti i ubrat-->
-    </button>
-</form>
-<form action="/get-json/readTimestamp_temperature_windSpeed">
-    <button>
-        <h3>Получить в формате JSON не все</h3>    <!--TODO: zatesti i ubrat-->
-    </button>
-</form>
+<div th:switch="${headRows.size() == 5}">
+    <form th:case="true" th:action="@{/download-full-report}">
+        <button>
+            <h3>Скачать</h3>
+        </button>
+    </form>
+    <form th:case="false" th:action="@{/download-editing-report/} + ${needfulColumns.timestampNeed} + '_' + ${needfulColumns.temperatureNeed}+ '_' + ${needfulColumns.pressureNeed}+ '_' + ${needfulColumns.windDirectionNeed}+ '_' + ${needfulColumns.windSpeedNeed}">
+        <p>В конце файла с отчетом будет написан его номер для поиска по сохраненным отчетам.</p>
+        <p>При скачивании отчет автоматически сохраняется</p>
+        <button>
+            <h3>Скачать</h3>
+        </button>
+    </form>
+</div>
 <form action="/editing">
     <button>
         <h3>Редактировать</h3>
@@ -53,5 +52,15 @@
         </button>
     </form>
 </div>
+<!--<form action="/get-json/full">
+    <button>
+        <h3>Получить в формате JSON все</h3>
+    </button>
+</form>_${needfulColumns.pressureNeed}_${needfulColumns.windDirectionNeed}_${needfulColumns.windSpeedNeed}
+<form action="/get-json/readTimestamp_temperature_windSpeed">
+    <button>
+        <h3>Получить в формате JSON не все</h3>
+    </button>
+</form>-->
 </body>
 </html>

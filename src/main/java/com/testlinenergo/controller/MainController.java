@@ -1,8 +1,10 @@
 package com.testlinenergo.controller;
 
 import com.testlinenergo.dao.MeteoDataDao;
+import com.testlinenergo.dao.ReportDao;
 import com.testlinenergo.model.MeteoStationData;
 import com.testlinenergo.model.NeedOfColumns;
+import com.testlinenergo.model.Report;
 import com.testlinenergo.service.ReportService;
 
 import org.json.JSONArray;
@@ -23,7 +25,6 @@ import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.stream.Stream;
 
 /**
  * заппппооооооолнить!!!!!!!!!!!!
@@ -57,7 +58,9 @@ public class MainController {
 
     public static final String WIND_SPEED = "windSpeed";
 
-    private static final String VARIANT_FOR_JSON_GETTING_ALL = "all";
+    private static final String FULL_REPORT = "full";
+
+    public static final Long FULL_REPORT_INDEX = -1L;
 
     public static final Logger logger = LoggerFactory.getLogger(MainController.class);
 
@@ -82,7 +85,8 @@ public class MainController {
 
     @RequestMapping(value = "/make-report", method = RequestMethod.POST)
     public void makeMonthlyReport(@ModelAttribute NeedOfColumns columns) {
-        this.reportService.createReport(FILE_PATH + FILE_NAME + FILE_TYPE, columns);
+        this.reportService.createReport(
+                FILE_PATH + FILE_NAME + FILE_TYPE, columns, FULL_REPORT_INDEX);
     }
 
     @RequestMapping(value = "/", method = RequestMethod.GET)
@@ -112,62 +116,83 @@ public class MainController {
 
     @RequestMapping(value = "/show-editing-report", method = RequestMethod.POST)
     public String showEditReport(@ModelAttribute NeedOfColumns columns, Model model) {
-        List<String> headRows = new LinkedList<>();
-        if (columns.getTimestampNeed()) headRows.add(READ_TIME);
-        if (columns.getTemperatureNeed()) headRows.add(TEMPERATURE);
-        if (columns.getPressureNeed()) headRows.add(PRESSURE);
-        if (columns.getWindDirectionNeed()) headRows.add(WIND_DIR);
-        if (columns.getWindSpeedNeed()) headRows.add(WIND_SPEED);
-
-        if (headRows.isEmpty()) headRows.add(READ_TIME);
-
         List<MeteoStationData> allData = this.reportService.getMonthlyMeteoDataList();
-        allData.sort(Comparator.comparing(MeteoStationData::getReadTimestamp));
+//        allData.sort(Comparator.comparing(MeteoStationData::getReadTimestamp));
 
-        model.addAttribute("headRows", headRows);
+        model.addAttribute("headRows", this.reportService.getHeadRows(columns));
         model.addAttribute("allData", allData);
+        model.addAttribute("needfulColumns", columns);
 
         return "report";
     }
 
-    @RequestMapping(value = "/download", method = RequestMethod.GET)
-    public void download(HttpServletResponse response) {
+    @RequestMapping(value = "/download-full-report", method = RequestMethod.GET)
+    public void downloadFull(HttpServletResponse response) {
         File myFile = new File(FILE_PATH, FILE_NAME + FILE_TYPE);
 
         response.setContentType(CONTENT_TYPE);
-        response.setHeader(HEADER_NAME, String.format("attachment; filename=\"%s\"", FILE_NAME + FILE_TYPE));
+        response.setHeader(HEADER_NAME,
+                String.format("attachment; filename=\"%s\"", FILE_NAME + FILE_TYPE));
 
-        try (OutputStream out = response.getOutputStream();
-             FileInputStream in = new FileInputStream(myFile)) {
-            int length;
-            byte[] buffer = new byte[4096];
-            while ((length = in.read(buffer)) > 0) {
-                out.write(buffer, 0, length);
-            }
-        } catch (IOException e) {
-            logger.debug(String.format("Error, \"%s\".", e.getMessage()));
-            e.printStackTrace();
-        }
+        this.reportService.addFileInResponse(myFile, response);
     }
 
+    @RequestMapping(value = "/download-editing-report/{needfulColumns}", method = RequestMethod.GET)
+    public void downloadEditing(@PathVariable String needfulColumns,
+                                  HttpServletResponse response, Model model) {
+        Report report = new Report();
+        this.reportService.saveReport(report);
+
+        String[] stringColumnsValues = needfulColumns.split("_");
+        NeedOfColumns columns = new NeedOfColumns();
+        columns.setTimestampNeed(
+                Boolean.valueOf(stringColumnsValues[0]));
+        columns.setTemperatureNeed(
+                Boolean.valueOf(stringColumnsValues[1]));
+        columns.setPressureNeed(
+                Boolean.valueOf(stringColumnsValues[2]));
+        columns.setWindDirectionNeed(
+                Boolean.valueOf(stringColumnsValues[3]));
+        columns.setWindSpeedNeed(
+                Boolean.valueOf(stringColumnsValues[4]));
+
+        final String currentFileName = FILE_NAME +
+                "_number" + report.getReportId() + FILE_TYPE;
+        this.reportService.createReport(FILE_PATH + currentFileName, columns, report.getReportId());
+
+        File myFile = new File(FILE_PATH, currentFileName);
+
+        response.setContentType(CONTENT_TYPE);
+        response.setHeader(HEADER_NAME,
+                String.format("attachment; filename=\"%s\"", currentFileName));
+
+        this.reportService.addFileInResponse(myFile, response);
+    }
+
+    /**
+     * Возвращает json массив с данными либо полного, либо редактированного отчета.
+     *
+     * @param columns - "all" или например "readTimestamp_temperature_windSpeed"
+     * @return JsonArray with data from report
+     */
     @ResponseBody
-    @RequestMapping(value = "/get-json/{variant}", method = RequestMethod.GET)
-    public JSONArray getJson(@PathVariable(name = "variant") String variant) {
-        if (variant.equals(VARIANT_FOR_JSON_GETTING_ALL)) {
+    @RequestMapping(value = "/get-json/{columns}", method = RequestMethod.GET)
+    public JSONArray getJson(@PathVariable(name = "columns") String columns) {
+        if (columns.equals(FULL_REPORT)) {
             return new JSONArray(this.reportService.getMonthlyMeteoDataList());
         } else {
             List<MeteoStationData> listWithoutExcessFields
                     = this.reportService.getMonthlyMeteoDataList();
             listWithoutExcessFields.forEach(data -> {
-                if (Arrays.stream(variant.split("_")).noneMatch(READ_TIME::equals))
+                if (Arrays.stream(columns.split("_")).noneMatch(READ_TIME::equals))
                     data.setReadTimestamp(null);
-                if (Arrays.stream(variant.split("_")).noneMatch(TEMPERATURE::equals))
+                if (Arrays.stream(columns.split("_")).noneMatch(TEMPERATURE::equals))
                     data.setTemperature(null);
-                if (Arrays.stream(variant.split("_")).noneMatch(PRESSURE::equals))
+                if (Arrays.stream(columns.split("_")).noneMatch(PRESSURE::equals))
                     data.setPressure(null);
-                if (Arrays.stream(variant.split("_")).noneMatch(WIND_DIR::equals))
+                if (Arrays.stream(columns.split("_")).noneMatch(WIND_DIR::equals))
                     data.setWindDirection(null);
-                if (Arrays.stream(variant.split("_")).noneMatch(WIND_SPEED::equals))
+                if (Arrays.stream(columns.split("_")).noneMatch(WIND_SPEED::equals))
                     data.setWindSpeed(null);
             });
 

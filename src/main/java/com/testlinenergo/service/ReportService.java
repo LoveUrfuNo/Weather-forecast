@@ -13,7 +13,7 @@ import java.text.ParseException;
 import java.util.List;
 
 /**
- * Created by kosty on 17.06.2017.
+ * Сервис для всех операций, требующихся для взаимодействия с отчетом.
  */
 public interface ReportService {
     boolean createReport(List<MeteoStationData> allData, final String filename, NeedOfColumns columns, long index);

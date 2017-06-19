@@ -6,7 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 /**
- * Created by kosty on 18.06.2017.
+ * Dao for class {@link com.testlinenergo.model.MeteoStationData}.
  */
 public interface MeteoDataDao extends JpaRepository<MeteoStationData, Long> {
 }

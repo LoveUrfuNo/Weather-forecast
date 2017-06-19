@@ -33,9 +33,6 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
-/**
- * заппппооооооолнить!!!!!!!!!!!!
- */
 @Controller
 public class MainController {
     @Autowired
@@ -69,16 +66,7 @@ public class MainController {
 
     public static final Long FULL_REPORT_INDEX = -1L;
 
-    private static final Integer NUMBER_OF_TIMESTAMP_COLUMN = 0;
-
-    private static final Integer NUMBER_OF_TEMPERATURE_COLUMN = 1;
-
-    private static final Integer NUMBER_OF_PRESSURE_COLUMN = 2;
-
-    private static final Integer NUMBER_OF_WIND_DIR_COLUMN = 3;
-
-    private static final Integer NUMBER_OF_WIND_SPEED_COLUMN = 4;
-
+    public static final String DATE_FORMAT = "EEE MMM dd HH:mm:ss z yyyy";
 
     public static final Logger logger = LoggerFactory.getLogger(MainController.class);
 
@@ -113,10 +101,15 @@ public class MainController {
         }
     }
 
+    /**
+     * Добавляет ежедневные данные в бд.
+     *
+     * @param data - данные в json
+     */
     @RequestMapping(value = "/add-meteo-data", method = RequestMethod.GET)
     public void addMeteoData(JSONObject data) {
         DateFormat formatter
-                = new SimpleDateFormat("EEE MMM dd HH:mm:ss z yyyy", Locale.US);
+                = new SimpleDateFormat(DATE_FORMAT, Locale.US);
 
         MeteoStationData newData = new MeteoStationData();
         try {
@@ -133,6 +126,15 @@ public class MainController {
         this.meteoDataDao.save(newData);
     }
 
+    /**
+     * Обновляет все отчеты (по условию - каждый месяц).
+     *
+     * @param needfulColumns - строка, состоящая из пяти подстрок(true или false), разбитых '_',
+     *                       хранящая значения полей объекта класса "NeedOfColumns":
+     *                       timestampNeed, temperatureNeed, pressureNeed, windDirectionNeed, windSpeedNeed
+     * @param optionsString  - строка, состоящая из 3 подстрок, разбитых '_', хранящая значения полей
+     *                       объекта класса "EditingOptions": rowNumber, columnNumber, replacingData
+     */
     @RequestMapping(value = "/update-reports/{needfulColumns}/{options}", method = RequestMethod.GET)
     public void updateReport(@PathVariable(name = "needfulColumns") String needfulColumns,
                              @PathVariable(name = "options") String optionsString) {
@@ -152,6 +154,9 @@ public class MainController {
         }
     }
 
+    /**
+     * Направляет к начальной странице.
+     */
     @RequestMapping(value = "/", method = RequestMethod.GET)
     public String showReportGet(Model model) {
         this.reportService.makeModelForStartPage(model);
@@ -163,6 +168,9 @@ public class MainController {
         return "report";
     }
 
+    /**
+     * Направляет на начальную страницу. (см функцию downloadReportByIndex(...))
+     */
     @RequestMapping(value = "/", method = RequestMethod.POST)
     public String showReportPost(Model model) {
         this.reportService.makeModelForStartPage(model);
@@ -174,6 +182,9 @@ public class MainController {
         return "report";
     }
 
+    /**
+     * Напрвляет на страницу с выбором колонок для отчета.
+     */
     @RequestMapping(value = "/choice-columns", method = RequestMethod.GET)
     public String choiceColumns(Model model) {
         model.addAttribute("needfulColumns", new NeedOfColumns());
@@ -181,6 +192,9 @@ public class MainController {
         return "choice-columns";
     }
 
+    /**
+     * Направляет на страницу с новым отчетом.
+     */
     @RequestMapping(value = "/show-partial-report", method = RequestMethod.POST)
     public String showEditReport(@ModelAttribute(name = "needfulColumns") NeedOfColumns columns,
                                  Model model) {
@@ -192,6 +206,9 @@ public class MainController {
         return "report";
     }
 
+    /**
+     * Скачивает главный отчет "monthly-meteo-report.xls".
+     */
     @RequestMapping(value = "/download-full-report", method = RequestMethod.GET)
     public void downloadFull(HttpServletResponse response) {
         File reportFile = new File(FILE_PATH, FILE_NAME + FILE_TYPE);
@@ -203,7 +220,10 @@ public class MainController {
         this.reportService.addFileInResponse(reportFile, response);
     }
 
-    @RequestMapping(value = "/download-editing-report/{needfulColumns}/{options}",
+    /**
+     * Скачивает отчет с изменениями и сохраняет. Если изменений нет, то вызывает функцию downloadFull(...).
+     */
+    @RequestMapping(value = "/download-report/{needfulColumns}/{options}",
             method = RequestMethod.GET)
     public void downloadEditing(@PathVariable(name = "needfulColumns") String needfulColumns,
                                 @PathVariable(name = "options") String optionsString,
@@ -211,12 +231,21 @@ public class MainController {
         NeedOfColumns columns = this.reportService.
                 parseStringWithLogicalColumnValues(needfulColumns);
         EditingOptions options = null;
-        if (Arrays.stream(optionsString.split("_")).noneMatch(str -> str.equals("null")))
+        // если изменений нет, то options остается null
+        if (Arrays.stream(optionsString.split("_")).noneMatch(str -> str.equals("null"))) {
             options = this.reportService.parseStringWithOptions(optionsString, columns);
+        }
+        // если выбраны все колонки и нет изменений, то скачиваем полный отчет
+        if (Arrays.stream(needfulColumns.split("_")).noneMatch(col -> col.equals("false"))
+                && null == options) {
+            downloadFull(response);
+
+            return;
+        }
 
         List<MeteoStationData> allData
                 = this.reportService.getMonthlyMeteoDataList();
-        try {
+        try {     // корректировка данных для отчета с учетом новых параметров, введенных пользователем
             this.reportService.editAllDataWithUserChanges(allData, columns, options);
         } catch (ParseException e) {
             logger.debug(String.format(
@@ -236,13 +265,18 @@ public class MainController {
         this.reportService.addFileInResponse(reportFile, response);
     }
 
+    /**
+     * Скачивает сохраненный отчет, предварительно найденный по его индексу, присвоенному при сохранении.
+     *
+     * @param report - report.getReportId() - номер отчета
+     */
     @RequestMapping(value = "/download-report-by-index", method = RequestMethod.POST)
     public void downloadReportByIndex(@ModelAttribute(name = "report") Report report,
                                       HttpServletResponse response, HttpServletRequest request) {
         File reportFile = new File(FILE_PATH,
                 FILE_NAME + "_number" + report.getReportId() + FILE_TYPE);
         if (!reportFile.isFile()) {
-            try {
+            try {     // перенаправляет на начальную страницу (в функцию showReportPost(...))
                 request.getRequestDispatcher("/").forward(request, response);
             } catch (ServletException | IOException e) {
                 logger.debug(String.format(
@@ -261,6 +295,16 @@ public class MainController {
         this.reportService.addFileInResponse(reportFile, response);
     }
 
+    /**
+     * Сохраняет отчет.
+     *
+     * @param needfulColumns - строка, состоящая из пяти подстрок(true или false), разбитых '_',
+     *                       хранящая значения полей объекта класса "NeedOfColumns":
+     *                       timestampNeed, temperatureNeed, pressureNeed, windDirectionNeed, windSpeedNeed
+     * @param optionsString  - строка, состоящая из 3 подстрок, разбитых '_', хранящая значения полей
+     *                       объекта класса "EditingOptions": rowNumber, columnNumber, replacingData
+     * @return название страницы, на которой показывается присвоенный отчету номер после сохранения.
+     */
     @RequestMapping(value = "/save-partial-report/{needfulColumns}/{options}", method = RequestMethod.GET)
     public String saveReport(@PathVariable(name = "needfulColumns") String needfulColumns,
                              @PathVariable(name = "options") String optionsString,
@@ -268,8 +312,9 @@ public class MainController {
         NeedOfColumns columns = this.reportService.
                 parseStringWithLogicalColumnValues(needfulColumns);
         EditingOptions options = null;
-        if (!optionsString.split("_").equals("null"))
+        if (Arrays.stream(optionsString.split("_")).noneMatch(str -> str.equals("null"))) {
             options = this.reportService.parseStringWithOptions(optionsString, columns);
+        }
 
         List<MeteoStationData> allData
                 = this.reportService.getMonthlyMeteoDataList();
@@ -290,6 +335,13 @@ public class MainController {
         return "after-save";
     }
 
+    /**
+     * Направляет на страницу, с заполнением новых данных для отчета.
+     *
+     * @param needfulColumns - строка, состоящая из пяти подстрок(true или false), разбитых '_',
+     *                       хранящая значения полей объекта класса "NeedOfColumns":
+     *                       timestampNeed, temperatureNeed, pressureNeed, windDirectionNeed, windSpeedNeed
+     */
     @RequestMapping(value = "/editing-report/{needfulColumns}", method = RequestMethod.GET)
     public String editReport(@PathVariable String needfulColumns, Model model) {
         NeedOfColumns columns = this.reportService.
@@ -310,6 +362,9 @@ public class MainController {
         List<MeteoStationData> allData
                 = this.reportService.getMonthlyMeteoDataList();
 
+        // например:
+        // если пользоватаель имеет в виду первую строку и первый столбец, то он вводит 1:1,
+        // но в структурах данных этот элемент будет хранится под номером 0:0
         options.setColumnNumber(options.getColumnNumber() - 1);
         options.setRowNumber(options.getRowNumber() - 1);
         try {

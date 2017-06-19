@@ -1,7 +1,7 @@
 package com.testlinenergo.model;
 
 /**
- * Created by kosty on 19.06.2017.
+ * Класс для хранения параметров редакторования отчета.
  */
 public class EditingOptions {
     private Integer rowNumber;
@@ -42,5 +42,15 @@ public class EditingOptions {
 
     public void setColumns(NeedOfColumns columns) {
         this.columns = columns;
+    }
+
+    @Override
+    public String toString() {
+        return "EditingOptions{" +
+                "rowNumber=" + rowNumber +
+                ", columnNumber=" + columnNumber +
+                ", replacingData='" + replacingData + '\'' +
+                ", columns=" + columns +
+                '}';
     }
 }

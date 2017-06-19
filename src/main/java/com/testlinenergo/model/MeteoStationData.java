@@ -8,7 +8,7 @@ import javax.persistence.Id;
 import java.util.Date;
 
 /**
- * Created by kosty on 17.06.2017.
+ * Класс для представления данных с метеостанции.
  */
 @Entity
 public class MeteoStationData {
@@ -74,5 +74,15 @@ public class MeteoStationData {
         this.windSpeed = windSpeed;
     }
 
-
+    @Override
+    public String toString() {
+        return "MeteoStationData{" +
+                "meteoStationId=" + meteoStationId +
+                ", readTimestamp=" + readTimestamp +
+                ", temperature=" + temperature +
+                ", pressure=" + pressure +
+                ", windDirection=" + windDirection +
+                ", windSpeed=" + windSpeed +
+                '}';
+    }
 }

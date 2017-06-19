@@ -225,7 +225,7 @@ public class ReportServiceImpl implements ReportService {
         if (columns.getWindSpeedNeed()) currentColumns.put(counterColumns, WIND_SPEED);
 
         DateFormat formatter
-                = new SimpleDateFormat("EEE MMM dd HH:mm:ss z yyyy", Locale.US);
+                = new SimpleDateFormat(DATE_FORMAT, Locale.US);
 
         final String optionsColumn = currentColumns.get(options.getColumnNumber());
         if (optionsColumn.equals(READ_TIME)) {
@@ -273,9 +273,8 @@ public class ReportServiceImpl implements ReportService {
                 if (null == firstRow || firstRow.getPhysicalNumberOfCells() == 0)
                     throw new NullPointerException();
 
-
                 NeedOfColumns columns = new NeedOfColumns();
-                for (int i = 0; i < firstRow.getPhysicalNumberOfCells(); ++i) {    //columns number in the current file
+                for (int i = 0; i < firstRow.getPhysicalNumberOfCells(); ++i) {    // i < columns number in the current file
                     if (firstRow.getCell(i).toString().equals(READ_TIME))
                         columns.setTimestampNeed(true);
                 }
@@ -296,7 +295,10 @@ public class ReportServiceImpl implements ReportService {
                         columns.setWindSpeedNeed(true);
                 }
 
-                String lastRowFromFile = firstSheet.getRow(firstSheet.getLastRowNum()).getCell(0).toString();
+                // последняя строка в документе, которая содержит номер отчета, кроме главного документа
+                String lastRowFromFile = firstSheet.getRow(firstSheet.getLastRowNum())
+                        .getCell(0).toString();
+                // если не содержит "Номер отчета", то этой главный документ, индекс которого = -1
                 long reportIndex = lastRowFromFile.contains("Номер отчета")
                         ? Long.valueOf(lastRowFromFile.replaceAll("\\D", ""))
                         : FULL_REPORT_INDEX;

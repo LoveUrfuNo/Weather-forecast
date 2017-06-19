@@ -1,7 +1,7 @@
 package com.testlinenergo.model;
 
 /**
- * Created by kosty on 18.06.2017.
+ * Класс для хранения выбранных столбцов при редактировании отчета.
  */
 public class NeedOfColumns {
     private Boolean timestampNeed;

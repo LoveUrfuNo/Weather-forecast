@@ -6,15 +6,13 @@ import javax.persistence.GenerationType;
 import javax.persistence.Id;
 
 /**
- * Created by kosty on 19.06.2017.
+ * Класс для взаимодействия с номераом отчета и бд.
  */
 @Entity
 public class Report {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     private Long reportId;
-
-    private String commentary;
 
     public Long getReportId() {
         return reportId;
@@ -24,11 +22,10 @@ public class Report {
         this.reportId = reportId;
     }
 
-    public String getCommentary() {
-        return commentary;
-    }
-
-    public void setCommentary(String commentary) {
-        this.commentary = commentary;
+    @Override
+    public String toString() {
+        return "Report{" +
+                "reportId=" + reportId +
+                '}';
     }
 }

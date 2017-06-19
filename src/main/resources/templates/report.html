@@ -6,7 +6,7 @@
 </head>
 <body>
 <table border="1">
-    <caption><h2>Отчет</h2></caption>
+    <caption><h2>Отчет по погоде</h2></caption>
     <tr>
         <div th:each="row : ${headRows}">
             <th th:text="${row}"></th>
@@ -32,7 +32,8 @@
             <h3>Скачать</h3>
         </button>
     </form>
-    <form th:case="false" th:action="@{/download-editing-report/} + ${needfulColumns.timestampNeed} + '_' + ${needfulColumns.temperatureNeed}+ '_' + ${needfulColumns.pressureNeed}+ '_' + ${needfulColumns.windDirectionNeed}+ '_' + ${needfulColumns.windSpeedNeed}">
+    <form th:case="false"
+          th:action="@{/download-editing-report/} + ${needfulColumns.timestampNeed} + '_' + ${needfulColumns.temperatureNeed}+ '_' + ${needfulColumns.pressureNeed}+ '_' + ${needfulColumns.windDirectionNeed}+ '_' + ${needfulColumns.windSpeedNeed}">
         <p>В конце файла с отчетом будет написан его номер для поиска по сохраненным отчетам.</p>
         <p>При скачивании отчет автоматически сохраняется</p>
         <button>
@@ -42,7 +43,7 @@
 </div>
 <form action="/editing">
     <button>
-        <h3>Редактировать</h3>
+        <h3>Выбрать колонки</h3>
     </button>
 </form>
 <div th:if="${headRows.size() != 5}">
@@ -51,16 +52,17 @@
             <h3>Полный отчет</h3>
         </button>
     </form>
+    <form th:action="@{/save-editing-report/} + ${needfulColumns.timestampNeed} + '_' + ${needfulColumns.temperatureNeed}+ '_' + ${needfulColumns.pressureNeed}+ '_' + ${needfulColumns.windDirectionNeed}+ '_' + ${needfulColumns.windSpeedNeed}">
+        <button>
+            <h3>Сохранить</h3>
+        </button>
+    </form>
 </div>
-<!--<form action="/get-json/full">
-    <button>
-        <h3>Получить в формате JSON все</h3>
-    </button>
-</form>_${needfulColumns.pressureNeed}_${needfulColumns.windDirectionNeed}_${needfulColumns.windSpeedNeed}
-<form action="/get-json/readTimestamp_temperature_windSpeed">
-    <button>
-        <h3>Получить в формате JSON не все</h3>
-    </button>
-</form>-->
+<div th:if="${report} != null">
+    <form method="post" th:action="@{/download-report-by-index}" th:object="${report}">
+        <input th:field="*{reportId}" type="number"/>
+        <input type="submit" value="Скачать отчет по номеру из сохраненных"/>
+    </form>
+</div>
 </body>
 </html>

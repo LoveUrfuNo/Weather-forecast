@@ -7,6 +7,10 @@ import com.testlinenergo.model.NeedOfColumns;
 import com.testlinenergo.model.Report;
 import com.testlinenergo.service.ReportService;
 
+import org.apache.poi.hssf.usermodel.HSSFRow;
+import org.apache.poi.hssf.usermodel.HSSFSheet;
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+import org.apache.poi.poifs.filesystem.POIFSFileSystem;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -18,6 +22,8 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import java.io.*;
@@ -37,12 +43,12 @@ public class MainController {
     @Autowired
     private MeteoDataDao meteoDataDao;
 
-    private static final String FILE_PATH
+    public static final String FILE_PATH
             = "C:\\Users\\kosty\\Desktop\\testlinenergo\\src\\main\\resources\\static\\";
 
-    private static final String FILE_NAME = "monthly-meteo-report";
+    public static final String FILE_NAME = "monthly-meteo-report";
 
-    private static final String FILE_TYPE = ".xls";
+    public static final String FILE_TYPE = ".xls";
 
     private static final String CONTENT_TYPE = "application/vnd.ms-excel";
 
@@ -83,26 +89,70 @@ public class MainController {
         this.meteoDataDao.save(newData);
     }
 
-    @RequestMapping(value = "/make-report", method = RequestMethod.POST)
-    public void makeMonthlyReport(@ModelAttribute NeedOfColumns columns) {
-        this.reportService.createReport(
-                FILE_PATH + FILE_NAME + FILE_TYPE, columns, FULL_REPORT_INDEX);
+    @RequestMapping(value = "/update-reports", method = RequestMethod.GET)
+    public void updateReport() {
+        File allReportsDir = new File(FILE_PATH);
+        if (allReportsDir.listFiles() != null) {
+            for (File file : allReportsDir.listFiles()) {
+                HSSFWorkbook workBook;
+                HSSFSheet firstSheet = null;
+                HSSFRow firstRow = null;
+                try {
+                    workBook = new HSSFWorkbook(new POIFSFileSystem(file));
+                    firstSheet = workBook.getSheetAt(0);
+                    if (null == firstSheet || firstSheet.getLastRowNum() == 0)
+                        throw new NullPointerException();
+
+                    firstRow = firstSheet.getRow(0);
+                    if (null == firstRow || firstRow.getPhysicalNumberOfCells() == 0)
+                        throw new NullPointerException();
+                } catch (IOException e) {
+                    logger.debug(String.format("Update reports error! %s", e.getMessage()));
+                    e.printStackTrace();
+                }
+
+                NeedOfColumns columns = new NeedOfColumns();
+                for (int i = 0; i < firstRow.getPhysicalNumberOfCells(); ++i) {    //columns number in the current file
+                    if (firstRow.getCell(i).toString().equals(READ_TIME))
+                        columns.setTimestampNeed(true);
+                }
+                for (int i = 0; i < firstRow.getPhysicalNumberOfCells(); ++i) {
+                    if (firstRow.getCell(i).toString().equals(TEMPERATURE))
+                        columns.setTemperatureNeed(true);
+                }
+                for (int i = 0; i < firstRow.getPhysicalNumberOfCells(); ++i) {
+                    if (firstRow.getCell(i).toString().equals(PRESSURE))
+                        columns.setPressureNeed(true);
+                }
+                for (int i = 0; i < firstRow.getPhysicalNumberOfCells(); ++i) {
+                    if (firstRow.getCell(i).toString().equals(WIND_DIR))
+                        columns.setWindDirectionNeed(true);
+                }
+                for (int i = 0; i < firstRow.getPhysicalNumberOfCells(); ++i) {
+                    if (firstRow.getCell(i).toString().equals(WIND_SPEED))
+                        columns.setWindSpeedNeed(true);
+                }
+
+                String lastRowFromFile = firstSheet.getRow(firstSheet.getLastRowNum()).getCell(0).toString();
+                long reportIndex = lastRowFromFile.contains("Номер отчета")
+                        ? Long.valueOf(lastRowFromFile.replaceAll("\\D", ""))
+                        : FULL_REPORT_INDEX;
+                this.reportService.createReport(FILE_PATH + file.getName(),
+                        columns, reportIndex);
+            }
+        }
     }
 
     @RequestMapping(value = "/", method = RequestMethod.GET)
-    public String showReport(Model model) {
-        List<String> headRows = new LinkedList<>();
-        headRows.add(READ_TIME);
-        headRows.add(TEMPERATURE);
-        headRows.add(PRESSURE);
-        headRows.add(WIND_DIR);
-        headRows.add(WIND_SPEED);
+    public String showReportGet(Model model) {
+        this.reportService.makeModelForStartPage(model);
 
-        List<MeteoStationData> allData = this.reportService.getMonthlyMeteoDataList();
-        allData.sort(Comparator.comparing(MeteoStationData::getReadTimestamp));
+        return "report";
+    }
 
-        model.addAttribute("headRows", headRows);
-        model.addAttribute("allData", allData);
+    @RequestMapping(value = "/", method = RequestMethod.POST)
+    public String showReportPost(Model model) {
+        this.reportService.makeModelForStartPage(model);
 
         return "report";
     }
@@ -117,7 +167,6 @@ public class MainController {
     @RequestMapping(value = "/show-editing-report", method = RequestMethod.POST)
     public String showEditReport(@ModelAttribute NeedOfColumns columns, Model model) {
         List<MeteoStationData> allData = this.reportService.getMonthlyMeteoDataList();
-//        allData.sort(Comparator.comparing(MeteoStationData::getReadTimestamp));
 
         model.addAttribute("headRows", this.reportService.getHeadRows(columns));
         model.addAttribute("allData", allData);
@@ -128,45 +177,66 @@ public class MainController {
 
     @RequestMapping(value = "/download-full-report", method = RequestMethod.GET)
     public void downloadFull(HttpServletResponse response) {
-        File myFile = new File(FILE_PATH, FILE_NAME + FILE_TYPE);
+        File reportFile = new File(FILE_PATH, FILE_NAME + FILE_TYPE);
 
         response.setContentType(CONTENT_TYPE);
         response.setHeader(HEADER_NAME,
                 String.format("attachment; filename=\"%s\"", FILE_NAME + FILE_TYPE));
 
-        this.reportService.addFileInResponse(myFile, response);
+        this.reportService.addFileInResponse(reportFile, response);
     }
 
     @RequestMapping(value = "/download-editing-report/{needfulColumns}", method = RequestMethod.GET)
     public void downloadEditing(@PathVariable String needfulColumns,
-                                  HttpServletResponse response, Model model) {
-        Report report = new Report();
-        this.reportService.saveReport(report);
-
-        String[] stringColumnsValues = needfulColumns.split("_");
-        NeedOfColumns columns = new NeedOfColumns();
-        columns.setTimestampNeed(
-                Boolean.valueOf(stringColumnsValues[0]));
-        columns.setTemperatureNeed(
-                Boolean.valueOf(stringColumnsValues[1]));
-        columns.setPressureNeed(
-                Boolean.valueOf(stringColumnsValues[2]));
-        columns.setWindDirectionNeed(
-                Boolean.valueOf(stringColumnsValues[3]));
-        columns.setWindSpeedNeed(
-                Boolean.valueOf(stringColumnsValues[4]));
-
-        final String currentFileName = FILE_NAME +
-                "_number" + report.getReportId() + FILE_TYPE;
-        this.reportService.createReport(FILE_PATH + currentFileName, columns, report.getReportId());
-
-        File myFile = new File(FILE_PATH, currentFileName);
+                                HttpServletResponse response, Model model) {
+        NeedOfColumns columns = this.reportService.
+                parseStringWithLogicalColumnValues(needfulColumns);
+        final String currentFileName
+                = this.reportService.saveEditingReportAndGetFileNAme(columns);
+        File reportFile = new File(FILE_PATH, currentFileName);
 
         response.setContentType(CONTENT_TYPE);
         response.setHeader(HEADER_NAME,
                 String.format("attachment; filename=\"%s\"", currentFileName));
 
-        this.reportService.addFileInResponse(myFile, response);
+        this.reportService.addFileInResponse(reportFile, response);
+    }
+
+    @RequestMapping(value = "/download-report-by-index", method = RequestMethod.POST)
+    public void downloadReportByIndex(@ModelAttribute(name = "report") Report report,
+                                      HttpServletResponse response, HttpServletRequest request) {
+        File reportFile = new File(FILE_PATH,
+                FILE_NAME + "_number" + report.getReportId() + FILE_TYPE);
+        if (!reportFile.isFile()) {
+            try {
+                request.getRequestDispatcher("/").forward(request, response);
+            } catch (ServletException | IOException e) {
+                logger.debug(String.format(
+                        "Error, can't redirect from \"/download-report-by-index\" to \"/\", %s",
+                        e.getMessage()));
+                e.printStackTrace();
+            }
+
+            return;
+        }
+
+        response.setContentType(CONTENT_TYPE);
+        response.setHeader(HEADER_NAME,
+                String.format("attachment; filename=\"%s\"", reportFile.getName()));
+
+        this.reportService.addFileInResponse(reportFile, response);
+    }
+
+    @RequestMapping(value = "/save-editing-report/{needfulColumns}", method = RequestMethod.GET)
+    public String saveReport(@PathVariable String needfulColumns, Model model) {
+        NeedOfColumns columns = this.reportService.
+                parseStringWithLogicalColumnValues(needfulColumns);
+        String reportIdStr = this.reportService.saveEditingReportAndGetFileNAme(columns)
+                .replaceAll("[\\D]", "");
+
+        model.addAttribute("reportNumber", reportIdStr);
+
+        return "after-save";
     }
 
     /**

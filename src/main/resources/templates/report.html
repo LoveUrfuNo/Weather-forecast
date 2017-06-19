@@ -26,24 +26,32 @@
         </tr>
     </div>
 </table>
-<div th:switch="${headRows.size() == 5}">
-    <form th:case="true" th:action="@{/download-full-report}">
-        <button>
-            <h3>Скачать</h3>
-        </button>
-    </form>
-    <form th:case="false"
-          th:action="@{/download-editing-report/} + ${needfulColumns.timestampNeed} + '_' + ${needfulColumns.temperatureNeed}+ '_' + ${needfulColumns.pressureNeed}+ '_' + ${needfulColumns.windDirectionNeed}+ '_' + ${needfulColumns.windSpeedNeed}">
-        <p>В конце файла с отчетом будет написан его номер для поиска по сохраненным отчетам.</p>
-        <p>При скачивании отчет автоматически сохраняется</p>
-        <button>
-            <h3>Скачать</h3>
-        </button>
-    </form>
-</div>
-<form action="/editing">
+<form th:action="@{/download-editing-report/} + ${needfulColumns.timestampNeed} + '_' +
+            ${needfulColumns.temperatureNeed} + '_' +
+            ${needfulColumns.pressureNeed} + '_' +
+            ${needfulColumns.windDirectionNeed} + '_' +
+            ${needfulColumns.windSpeedNeed} + '/' +
+            ${options.rowNumber} + '_' +
+            ${options.columnNumber} + '_' +
+            ${options.replacingData}">
+    <p>В конце файла с отчетом будет написан его номер для поиска по сохраненным отчетам.</p>
+    <p>При скачивании отчет автоматически сохраняется</p>
+    <button>
+        <h3>Скачать</h3>
+    </button>
+</form>
+<form action="/choice-columns">
     <button>
         <h3>Выбрать колонки</h3>
+    </button>
+</form>
+<form th:action="@{/editing-report/} + ${needfulColumns.timestampNeed} + '_' +
+        ${needfulColumns.temperatureNeed}+ '_' +
+        ${needfulColumns.pressureNeed}+ '_' +
+        ${needfulColumns.windDirectionNeed}+ '_' +
+        ${needfulColumns.windSpeedNeed}">
+    <button>
+        <h3>Редактировать данные</h3>
     </button>
 </form>
 <div th:if="${headRows.size() != 5}">
@@ -52,7 +60,14 @@
             <h3>Полный отчет</h3>
         </button>
     </form>
-    <form th:action="@{/save-editing-report/} + ${needfulColumns.timestampNeed} + '_' + ${needfulColumns.temperatureNeed}+ '_' + ${needfulColumns.pressureNeed}+ '_' + ${needfulColumns.windDirectionNeed}+ '_' + ${needfulColumns.windSpeedNeed}">
+    <form th:action="@{/save-partial-report/} + ${needfulColumns.timestampNeed} + '_' +
+      ${needfulColumns.temperatureNeed}+ '_' +
+      ${needfulColumns.pressureNeed}+ '_' +
+      ${needfulColumns.windDirectionNeed}+ '_' +
+      ${needfulColumns.windSpeedNeed}+ '/' +
+      ${options.rowNumber} + '_' +
+      ${options.columnNumber} + '_' +
+      ${options.replacingData}">
         <button>
             <h3>Сохранить</h3>
         </button>

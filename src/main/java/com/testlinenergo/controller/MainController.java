@@ -2,6 +2,7 @@ package com.testlinenergo.controller;
 
 import com.testlinenergo.dao.MeteoDataDao;
 import com.testlinenergo.dao.ReportDao;
+import com.testlinenergo.model.EditingOptions;
 import com.testlinenergo.model.MeteoStationData;
 import com.testlinenergo.model.NeedOfColumns;
 import com.testlinenergo.model.Report;
@@ -68,11 +69,54 @@ public class MainController {
 
     public static final Long FULL_REPORT_INDEX = -1L;
 
+    private static final Integer NUMBER_OF_TIMESTAMP_COLUMN = 0;
+
+    private static final Integer NUMBER_OF_TEMPERATURE_COLUMN = 1;
+
+    private static final Integer NUMBER_OF_PRESSURE_COLUMN = 2;
+
+    private static final Integer NUMBER_OF_WIND_DIR_COLUMN = 3;
+
+    private static final Integer NUMBER_OF_WIND_SPEED_COLUMN = 4;
+
+
     public static final Logger logger = LoggerFactory.getLogger(MainController.class);
+
+    /**
+     * Возвращает json массив с данными либо полного, либо редактированного отчета.
+     *
+     * @param columns - "all" или например "readTimestamp_temperature_windSpeed"
+     * @return JsonArray with data from report
+     */
+    @ResponseBody
+    @RequestMapping(value = "/get-json/{columns}", method = RequestMethod.GET)
+    public JSONArray getJson(@PathVariable(name = "columns") String columns) {
+        if (columns.equals(FULL_REPORT)) {
+            return new JSONArray(this.reportService.getMonthlyMeteoDataList());
+        } else {
+            List<MeteoStationData> listWithoutExcessFields
+                    = this.reportService.getMonthlyMeteoDataList();
+            listWithoutExcessFields.forEach(data -> {
+                if (Arrays.stream(columns.split("_")).noneMatch(READ_TIME::equals))
+                    data.setReadTimestamp(null);
+                if (Arrays.stream(columns.split("_")).noneMatch(TEMPERATURE::equals))
+                    data.setTemperature(null);
+                if (Arrays.stream(columns.split("_")).noneMatch(PRESSURE::equals))
+                    data.setPressure(null);
+                if (Arrays.stream(columns.split("_")).noneMatch(WIND_DIR::equals))
+                    data.setWindDirection(null);
+                if (Arrays.stream(columns.split("_")).noneMatch(WIND_SPEED::equals))
+                    data.setWindSpeed(null);
+            });
+
+            return new JSONArray(listWithoutExcessFields);
+        }
+    }
 
     @RequestMapping(value = "/add-meteo-data", method = RequestMethod.GET)
     public void addMeteoData(JSONObject data) {
-        DateFormat formatter = new SimpleDateFormat("EEE MMM dd HH:mm:ss z yyyy", Locale.US);
+        DateFormat formatter
+                = new SimpleDateFormat("EEE MMM dd HH:mm:ss z yyyy", Locale.US);
 
         MeteoStationData newData = new MeteoStationData();
         try {
@@ -89,63 +133,32 @@ public class MainController {
         this.meteoDataDao.save(newData);
     }
 
-    @RequestMapping(value = "/update-reports", method = RequestMethod.GET)
-    public void updateReport() {
-        File allReportsDir = new File(FILE_PATH);
-        if (allReportsDir.listFiles() != null) {
-            for (File file : allReportsDir.listFiles()) {
-                HSSFWorkbook workBook;
-                HSSFSheet firstSheet = null;
-                HSSFRow firstRow = null;
-                try {
-                    workBook = new HSSFWorkbook(new POIFSFileSystem(file));
-                    firstSheet = workBook.getSheetAt(0);
-                    if (null == firstSheet || firstSheet.getLastRowNum() == 0)
-                        throw new NullPointerException();
+    @RequestMapping(value = "/update-reports/{needfulColumns}/{options}", method = RequestMethod.GET)
+    public void updateReport(@PathVariable(name = "needfulColumns") String needfulColumns,
+                             @PathVariable(name = "options") String optionsString) {
+        NeedOfColumns columns = this.reportService.
+                parseStringWithLogicalColumnValues(needfulColumns);
+        EditingOptions options
+                = this.reportService.parseStringWithOptions(optionsString, columns);
 
-                    firstRow = firstSheet.getRow(0);
-                    if (null == firstRow || firstRow.getPhysicalNumberOfCells() == 0)
-                        throw new NullPointerException();
-                } catch (IOException e) {
-                    logger.debug(String.format("Update reports error! %s", e.getMessage()));
-                    e.printStackTrace();
-                }
-
-                NeedOfColumns columns = new NeedOfColumns();
-                for (int i = 0; i < firstRow.getPhysicalNumberOfCells(); ++i) {    //columns number in the current file
-                    if (firstRow.getCell(i).toString().equals(READ_TIME))
-                        columns.setTimestampNeed(true);
-                }
-                for (int i = 0; i < firstRow.getPhysicalNumberOfCells(); ++i) {
-                    if (firstRow.getCell(i).toString().equals(TEMPERATURE))
-                        columns.setTemperatureNeed(true);
-                }
-                for (int i = 0; i < firstRow.getPhysicalNumberOfCells(); ++i) {
-                    if (firstRow.getCell(i).toString().equals(PRESSURE))
-                        columns.setPressureNeed(true);
-                }
-                for (int i = 0; i < firstRow.getPhysicalNumberOfCells(); ++i) {
-                    if (firstRow.getCell(i).toString().equals(WIND_DIR))
-                        columns.setWindDirectionNeed(true);
-                }
-                for (int i = 0; i < firstRow.getPhysicalNumberOfCells(); ++i) {
-                    if (firstRow.getCell(i).toString().equals(WIND_SPEED))
-                        columns.setWindSpeedNeed(true);
-                }
-
-                String lastRowFromFile = firstSheet.getRow(firstSheet.getLastRowNum()).getCell(0).toString();
-                long reportIndex = lastRowFromFile.contains("Номер отчета")
-                        ? Long.valueOf(lastRowFromFile.replaceAll("\\D", ""))
-                        : FULL_REPORT_INDEX;
-                this.reportService.createReport(FILE_PATH + file.getName(),
-                        columns, reportIndex);
-            }
+        List<MeteoStationData> allData
+                = this.reportService.getMonthlyMeteoDataList();
+        try {
+            this.reportService.editAllDataWithUserChanges(allData, columns, options);
+            this.reportService.updateAllReports(allData);
+        } catch (IOException | ParseException e) {
+            logger.debug(String.format("Update reports error! %s", e.getMessage()));
+            e.printStackTrace();
         }
     }
 
     @RequestMapping(value = "/", method = RequestMethod.GET)
     public String showReportGet(Model model) {
         this.reportService.makeModelForStartPage(model);
+
+        NeedOfColumns columns = this.reportService.getColumnForFullReport();
+        model.addAttribute("needfulColumns", columns);
+        model.addAttribute("options", new EditingOptions());
 
         return "report";
     }
@@ -154,23 +167,27 @@ public class MainController {
     public String showReportPost(Model model) {
         this.reportService.makeModelForStartPage(model);
 
+        NeedOfColumns columns = this.reportService.getColumnForFullReport();
+        model.addAttribute("needfulColumns", columns);
+        model.addAttribute("options", new EditingOptions());
+
         return "report";
     }
 
-    @RequestMapping(value = "/editing", method = RequestMethod.GET)
-    public String editReport(Model model) {
-        model.addAttribute("checkObject", new NeedOfColumns());
+    @RequestMapping(value = "/choice-columns", method = RequestMethod.GET)
+    public String choiceColumns(Model model) {
+        model.addAttribute("needfulColumns", new NeedOfColumns());
 
-        return "editing";
+        return "choice-columns";
     }
 
-    @RequestMapping(value = "/show-editing-report", method = RequestMethod.POST)
-    public String showEditReport(@ModelAttribute NeedOfColumns columns, Model model) {
-        List<MeteoStationData> allData = this.reportService.getMonthlyMeteoDataList();
-
+    @RequestMapping(value = "/show-partial-report", method = RequestMethod.POST)
+    public String showEditReport(@ModelAttribute(name = "needfulColumns") NeedOfColumns columns,
+                                 Model model) {
         model.addAttribute("headRows", this.reportService.getHeadRows(columns));
-        model.addAttribute("allData", allData);
+        model.addAttribute("allData", this.reportService.getMonthlyMeteoDataList());
         model.addAttribute("needfulColumns", columns);
+        model.addAttribute("options", new EditingOptions());
 
         return "report";
     }
@@ -186,13 +203,30 @@ public class MainController {
         this.reportService.addFileInResponse(reportFile, response);
     }
 
-    @RequestMapping(value = "/download-editing-report/{needfulColumns}", method = RequestMethod.GET)
-    public void downloadEditing(@PathVariable String needfulColumns,
-                                HttpServletResponse response, Model model) {
+    @RequestMapping(value = "/download-editing-report/{needfulColumns}/{options}",
+            method = RequestMethod.GET)
+    public void downloadEditing(@PathVariable(name = "needfulColumns") String needfulColumns,
+                                @PathVariable(name = "options") String optionsString,
+                                HttpServletResponse response) {
         NeedOfColumns columns = this.reportService.
                 parseStringWithLogicalColumnValues(needfulColumns);
+        EditingOptions options = null;
+        if (Arrays.stream(optionsString.split("_")).noneMatch(str -> str.equals("null")))
+            options = this.reportService.parseStringWithOptions(optionsString, columns);
+
+        List<MeteoStationData> allData
+                = this.reportService.getMonthlyMeteoDataList();
+        try {
+            this.reportService.editAllDataWithUserChanges(allData, columns, options);
+        } catch (ParseException e) {
+            logger.debug(String.format(
+                    "Error, can't parse user string to date from \"/download-editing-report\", %s",
+                    e.getMessage()));
+            e.printStackTrace();
+        }
+
         final String currentFileName
-                = this.reportService.saveEditingReportAndGetFileNAme(columns);
+                = this.reportService.saveEditingReportAndGetFileNAme(allData, columns);
         File reportFile = new File(FILE_PATH, currentFileName);
 
         response.setContentType(CONTENT_TYPE);
@@ -227,46 +261,73 @@ public class MainController {
         this.reportService.addFileInResponse(reportFile, response);
     }
 
-    @RequestMapping(value = "/save-editing-report/{needfulColumns}", method = RequestMethod.GET)
-    public String saveReport(@PathVariable String needfulColumns, Model model) {
+    @RequestMapping(value = "/save-partial-report/{needfulColumns}/{options}", method = RequestMethod.GET)
+    public String saveReport(@PathVariable(name = "needfulColumns") String needfulColumns,
+                             @PathVariable(name = "options") String optionsString,
+                             Model model) {
         NeedOfColumns columns = this.reportService.
                 parseStringWithLogicalColumnValues(needfulColumns);
-        String reportIdStr = this.reportService.saveEditingReportAndGetFileNAme(columns)
+        EditingOptions options = null;
+        if (!optionsString.split("_").equals("null"))
+            options = this.reportService.parseStringWithOptions(optionsString, columns);
+
+        List<MeteoStationData> allData
+                = this.reportService.getMonthlyMeteoDataList();
+        try {
+            this.reportService.editAllDataWithUserChanges(allData, columns, options);
+        } catch (ParseException e) {
+            logger.debug(String.format(
+                    "Error, can't parse user string to date from \"/save-partial-report\", %s",
+                    e.getMessage()));
+            e.printStackTrace();
+        }
+
+        String reportId = this.reportService.saveEditingReportAndGetFileNAme(allData, columns)
                 .replaceAll("[\\D]", "");
 
-        model.addAttribute("reportNumber", reportIdStr);
+        model.addAttribute("reportNumber", reportId);
 
         return "after-save";
     }
 
-    /**
-     * Возвращает json массив с данными либо полного, либо редактированного отчета.
-     *
-     * @param columns - "all" или например "readTimestamp_temperature_windSpeed"
-     * @return JsonArray with data from report
-     */
-    @ResponseBody
-    @RequestMapping(value = "/get-json/{columns}", method = RequestMethod.GET)
-    public JSONArray getJson(@PathVariable(name = "columns") String columns) {
-        if (columns.equals(FULL_REPORT)) {
-            return new JSONArray(this.reportService.getMonthlyMeteoDataList());
-        } else {
-            List<MeteoStationData> listWithoutExcessFields
-                    = this.reportService.getMonthlyMeteoDataList();
-            listWithoutExcessFields.forEach(data -> {
-                if (Arrays.stream(columns.split("_")).noneMatch(READ_TIME::equals))
-                    data.setReadTimestamp(null);
-                if (Arrays.stream(columns.split("_")).noneMatch(TEMPERATURE::equals))
-                    data.setTemperature(null);
-                if (Arrays.stream(columns.split("_")).noneMatch(PRESSURE::equals))
-                    data.setPressure(null);
-                if (Arrays.stream(columns.split("_")).noneMatch(WIND_DIR::equals))
-                    data.setWindDirection(null);
-                if (Arrays.stream(columns.split("_")).noneMatch(WIND_SPEED::equals))
-                    data.setWindSpeed(null);
-            });
+    @RequestMapping(value = "/editing-report/{needfulColumns}", method = RequestMethod.GET)
+    public String editReport(@PathVariable String needfulColumns, Model model) {
+        NeedOfColumns columns = this.reportService.
+                parseStringWithLogicalColumnValues(needfulColumns);
 
-            return new JSONArray(listWithoutExcessFields);
+        EditingOptions options = new EditingOptions();
+        options.setColumns(columns);
+        model.addAttribute("options", options);
+
+        return "editing";
+    }
+
+    @RequestMapping(value = "/editing-report/{needfulColumns}", method = RequestMethod.POST)
+    public String showEditingReport(@PathVariable String needfulColumns,
+                                    @ModelAttribute EditingOptions options, Model model) {
+        NeedOfColumns columns
+                = this.reportService.parseStringWithLogicalColumnValues(needfulColumns);
+        List<MeteoStationData> allData
+                = this.reportService.getMonthlyMeteoDataList();
+
+        options.setColumnNumber(options.getColumnNumber() - 1);
+        options.setRowNumber(options.getRowNumber() - 1);
+        try {
+            this.reportService.editAllDataWithUserChanges(allData, columns, options);
+        } catch (ParseException e) {
+            logger.debug(String.format(
+                    "Error, can't parse user string to date from \"/editing-report\", %s",
+                    e.getMessage()));
+            e.printStackTrace();
+
+            return "redirect:/";
         }
+
+        model.addAttribute("allData", allData);
+        model.addAttribute("headRows", this.reportService.getHeadRows(columns));
+        model.addAttribute("needfulColumns", columns);
+        model.addAttribute("options", options);
+
+        return "report";
     }
 }

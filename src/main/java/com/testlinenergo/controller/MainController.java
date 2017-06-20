@@ -1,17 +1,12 @@
 package com.testlinenergo.controller;
 
 import com.testlinenergo.dao.MeteoDataDao;
-import com.testlinenergo.dao.ReportDao;
 import com.testlinenergo.model.EditingOptions;
 import com.testlinenergo.model.MeteoStationData;
 import com.testlinenergo.model.NeedOfColumns;
 import com.testlinenergo.model.Report;
 import com.testlinenergo.service.ReportService;
 
-import org.apache.poi.hssf.usermodel.HSSFRow;
-import org.apache.poi.hssf.usermodel.HSSFSheet;
-import org.apache.poi.hssf.usermodel.HSSFWorkbook;
-import org.apache.poi.poifs.filesystem.POIFSFileSystem;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -212,6 +207,11 @@ public class MainController {
     @RequestMapping(value = "/download-full-report", method = RequestMethod.GET)
     public void downloadFull(HttpServletResponse response) {
         File reportFile = new File(FILE_PATH, FILE_NAME + FILE_TYPE);
+        if (!reportFile.isFile()) {
+            List<MeteoStationData> allData = this.reportService.getMonthlyMeteoDataList();
+            this.reportService.createReport(allData, FILE_PATH + FILE_NAME + FILE_TYPE,
+                    this.reportService.getColumnForFullReport(), FULL_REPORT_INDEX);
+        }
 
         response.setContentType(CONTENT_TYPE);
         response.setHeader(HEADER_NAME,
@@ -361,7 +361,6 @@ public class MainController {
                 = this.reportService.parseStringWithLogicalColumnValues(needfulColumns);
         List<MeteoStationData> allData
                 = this.reportService.getMonthlyMeteoDataList();
-
         // например:
         // если пользоватаель имеет в виду первую строку и первый столбец, то он вводит 1:1,
         // но в структурах данных этот элемент будет хранится под номером 0:0

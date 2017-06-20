@@ -6,6 +6,7 @@ import com.testlinenergo.model.EditingOptions;
 import com.testlinenergo.model.MeteoStationData;
 import com.testlinenergo.model.NeedOfColumns;
 import com.testlinenergo.model.Report;
+
 import org.apache.poi.hssf.usermodel.HSSFRow;
 import org.apache.poi.hssf.usermodel.HSSFSheet;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.ui.Model;
 
 import javax.servlet.http.HttpServletResponse;
+
 import java.io.*;
 import java.text.DateFormat;
 import java.text.ParseException;
@@ -41,7 +43,7 @@ public class ReportServiceImpl implements ReportService {
     private static final Integer NUMBER_OF_DAYS_IN_MONTH = 31;
 
     @Override
-    public boolean createReport(List<MeteoStationData> allData, final String filename, NeedOfColumns columns, final long index) {
+    public boolean createReport(List<MeteoStationData> allData, final String filePath, NeedOfColumns columns, final long index) {
         HSSFWorkbook workbook = new HSSFWorkbook();
         HSSFSheet sheet = workbook.createSheet("FirstSheet");
 
@@ -99,7 +101,7 @@ public class ReportServiceImpl implements ReportService {
             lastRowForPrintReportIndex.createCell(0).setCellValue("Номер отчета " + index);
         }
 
-        try (FileOutputStream fileOut = new FileOutputStream(filename)) {
+        try (FileOutputStream fileOut = new FileOutputStream(filePath)) {
             workbook.write(fileOut);
         } catch (IOException e) {
             e.printStackTrace();

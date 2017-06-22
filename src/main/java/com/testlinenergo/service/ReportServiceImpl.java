@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
 import static com.testlinenergo.controller.MainController.*;
 
 /**
- * Created by kosty on 17.06.2017.
+ * Implementation of {@link com.testlinenergo.service.ReportService}
  */
 @Service
 public class ReportServiceImpl implements ReportService {
@@ -42,8 +42,13 @@ public class ReportServiceImpl implements ReportService {
 
     private static final Integer NUMBER_OF_DAYS_IN_MONTH = 31;
 
+    private static final Integer NUMBER_OF_OPTIONS = 3;
+
+    private static final Integer NUMBER_OF_COLUMNS = 5;
+
     @Override
-    public boolean createReport(List<MeteoStationData> allData, final String filePath, NeedOfColumns columns, final long index) {
+    public boolean createReport(List<MeteoStationData> allData, final String filePath,
+                                NeedOfColumns columns, final long index) {
         HSSFWorkbook workbook = new HSSFWorkbook();
         HSSFSheet sheet = workbook.createSheet("FirstSheet");
 
@@ -157,7 +162,8 @@ public class ReportServiceImpl implements ReportService {
     }
 
     @Override
-    public String saveEditingReportAndGetFileNAme(List<MeteoStationData> allData, NeedOfColumns columns) {
+    public String saveEditingReportAndGetFileNAme(List<MeteoStationData> allData,
+                                                  NeedOfColumns columns) {
         Report report = new Report();
         saveReport(report);
 
@@ -179,6 +185,9 @@ public class ReportServiceImpl implements ReportService {
             columns.setWindSpeedNeed(true);
         } else {
             String[] stringColumnsValues = needfulColumns.split("_");
+            if (!(stringColumnsValues.length == NUMBER_OF_COLUMNS))   // если строка неправильного формата,
+                return getColumnForFullReport();                     // то возвращаем все columns со всеми значениями == тру
+
             columns.setTimestampNeed(
                     Boolean.valueOf(stringColumnsValues[0]));
             columns.setTemperatureNeed(
@@ -251,6 +260,10 @@ public class ReportServiceImpl implements ReportService {
     @Override
     public EditingOptions parseStringWithOptions(String optionsString, NeedOfColumns columns) {
         String[] optionsArr = optionsString.split("_");
+        if (!(optionsArr.length == NUMBER_OF_OPTIONS)
+                || Arrays.stream(optionsArr).anyMatch(str -> str.equals("null"))) {
+            return null;
+        }
 
         EditingOptions options = new EditingOptions();
         options.setColumns(columns);

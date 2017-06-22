@@ -21,10 +21,10 @@ public interface ReportService {
     /**
      * Создает и сохраняет файл с отчетом.
      *
-     * @param allData - данные, из которых будет составлен отчет
+     * @param allData  - данные, из которых будет составлен отчет
      * @param filePath - полное путь до файла
-     * @param columns - нужные колонки в отчете, выбранные пользователем
-     * @param index - номер отчета
+     * @param columns  - нужные колонки в отчете, выбранные пользователем
+     * @param index    - номер отчета
      * @return выполнился ли отчет
      */
     boolean createReport(List<MeteoStationData> allData, final String filePath, NeedOfColumns columns, long index);

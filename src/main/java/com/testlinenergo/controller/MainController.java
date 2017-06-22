@@ -109,14 +109,15 @@ public class MainController {
         MeteoStationData newData = new MeteoStationData();
         try {
             newData.setReadTimestamp(formatter.parse(data.getString(READ_TIME)));
-            newData.setTemperature((Double) data.get(TEMPERATURE));
-            newData.setPressure((Integer) data.get(PRESSURE));
-            newData.setWindDirection((Integer) data.get(WIND_DIR));
-            newData.setWindSpeed((Integer) data.get(WIND_SPEED));
         } catch (ParseException e) {
             logger.debug(String.format("Parse read_temperature error! %s", e.getMessage()));
             e.printStackTrace();
         }
+
+        newData.setTemperature((Double) data.get(TEMPERATURE));
+        newData.setPressure((Integer) data.get(PRESSURE));
+        newData.setWindDirection((Integer) data.get(WIND_DIR));
+        newData.setWindSpeed((Integer) data.get(WIND_SPEED));
 
         this.meteoDataDao.save(newData);
     }
@@ -221,7 +222,8 @@ public class MainController {
     }
 
     /**
-     * Скачивает отчет с изменениями и сохраняет. Если изменений нет, то вызывает функцию downloadFull(...).
+     * Скачивает отчет с изменениями и сохраняет. Если изменений нет,
+     * то вызывает функцию downloadFull(...).
      */
     @RequestMapping(value = "/download-report/{needfulColumns}/{options}",
             method = RequestMethod.GET)
@@ -311,10 +313,8 @@ public class MainController {
                              Model model) {
         NeedOfColumns columns = this.reportService.
                 parseStringWithLogicalColumnValues(needfulColumns);
-        EditingOptions options = null;
-        if (Arrays.stream(optionsString.split("_")).noneMatch(str -> str.equals("null"))) {
-            options = this.reportService.parseStringWithOptions(optionsString, columns);
-        }
+        EditingOptions options
+                = this.reportService.parseStringWithOptions(optionsString, columns);
 
         List<MeteoStationData> allData
                 = this.reportService.getMonthlyMeteoDataList();

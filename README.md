@@ -1,1 +1,1 @@
-# Weather-forecast
+Service for the compilation and storage of periodic weather reports
